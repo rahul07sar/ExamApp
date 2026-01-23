@@ -40,8 +40,52 @@ export default function RegisterPage() {
     <div className="mx-auto mt-20 max-w-md rounded-xl bg-white p-8 shadow dark:bg-zinc-950">
       <h1 className="mb-6 text-2xl font-semibold">Student Registration</h1>
 
-      <form className="space-y-4">
+      <form
+        className="space-y-4"
+        onSubmit={async (e) => {
+          e.preventDefault();
+
+          const form = e.currentTarget;
+          const email = (form.elements.namedItem("email") as HTMLInputElement)
+            .value;
+          const password = (
+            form.elements.namedItem("password") as HTMLInputElement
+          ).value;
+          const confirm = (
+            form.elements.namedItem("confirmPassword") as HTMLInputElement
+          ).value;
+
+          if (password !== confirm) {
+            setError("Passwords do not match");
+            return;
+          }
+
+          const res = await fetch(
+            `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/register`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                email,
+                password,
+                subjects: selectedSubjects
+              })
+            }
+          );
+
+          if (!res.ok) {
+            setError("Registration failed");
+          } else {
+            form.reset();
+            setSelectedSubjects([]);
+            setSubjectsOpen(false);
+            setError(null);
+            alert("Registration successful");
+          }
+        }}
+      >
         <input
+          name="email"
           type="email"
           required
           placeholder="Email"
@@ -51,6 +95,7 @@ export default function RegisterPage() {
         {/* Password */}
         <div className="relative">
           <input
+            name="password"
             type={showPassword ? "text" : "password"}
             required
             placeholder="Password"
@@ -70,6 +115,7 @@ export default function RegisterPage() {
         {/* Confirm Password */}
         <div className="relative">
           <input
+            name="confirmPassword"
             type={showConfirmPassword ? "text" : "password"}
             required
             placeholder="Confirm Password"
