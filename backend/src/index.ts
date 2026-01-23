@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { pool } from "./db/pool.js";
 import subjectsRouter from "./routes/subjects.js";
+import authRouter from "./routes/auth.js";
 
 const app = express();
 
@@ -14,6 +15,7 @@ app.use(
 
 app.use(express.json());
 app.use("/subjects", subjectsRouter);
+app.use("/auth", authRouter);
 
 app.get("/health", async (_req, res) => {
   const result = await pool.query("SELECT 1");
