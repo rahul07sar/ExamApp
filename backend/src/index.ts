@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { pool } from "./db/pool.js";
 import subjectsRouter from "./routes/subjects.js";
 import authRouter from "./routes/auth.js";
@@ -14,6 +15,8 @@ app.use(
 );
 
 app.use(express.json());
+app.use(cookieParser());
+
 app.use("/subjects", subjectsRouter);
 app.use("/auth", authRouter);
 
