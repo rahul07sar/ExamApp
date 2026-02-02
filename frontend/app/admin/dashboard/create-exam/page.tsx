@@ -1,35 +1,77 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+
+type Subject = {
+  id: string;
+  name: string;
+};
 
 export default function CreateExamPage() {
   const router = useRouter();
 
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [message, setMessage] = useState<string | null>(null);
+
   const [form, setForm] = useState({
-    examId: "",
+    subjectId: "",
     title: "",
     maxAttempts: "",
     cooldownMinutes: "",
   });
+  
+  useEffect(() => {
+    async function checkAdmin() {
+        const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/me`,
+        { credentials: "include" }
+        );
+
+        if (!res.ok) {
+        router.replace("/login");
+        return;
+        }
+
+        const { role } = await res.json();
+        if (role !== "admin") {
+        router.replace("/dashboard");
+        }
+    }
+
+    checkAdmin();
+    }, [router]);
+
+  useEffect(() => {
+    async function loadSubjects() {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/subjects`,
+        { credentials: "include" }
+      );
+      const data = await res.json();
+      setSubjects(data);
+    }
+    loadSubjects();
+  }, []);
 
   function updateField(
-    e: React.ChangeEvent<HTMLInputElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) {
     setForm({ ...form, [e.target.name]: e.target.value });
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setMessage(null);
 
-    await fetch(
+    const res = await fetch(
       `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/exams`,
       {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          examId: form.examId,
+          subjectId: form.subjectId,
           title: form.title,
           maxAttempts: Number(form.maxAttempts),
           cooldownMinutes: Number(form.cooldownMinutes),
@@ -37,14 +79,23 @@ export default function CreateExamPage() {
       }
     );
 
+    if (!res.ok) {
+      setMessage("Failed to create exam");
+      return;
+    }
+
+    setMessage("Exam created successfully");
+
     setForm({
-      examId: "",
+      subjectId: "",
       title: "",
       maxAttempts: "",
       cooldownMinutes: "",
     });
 
-    router.replace("/admin/dashboard");
+    setTimeout(() => {
+      router.replace("/admin/dashboard");
+    }, 800);
   }
 
   return (
@@ -52,14 +103,20 @@ export default function CreateExamPage() {
       <h1 className="text-xl font-semibold mb-6">Create Exam</h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          name="examId"
-          placeholder="Exam GUID"
-          value={form.examId}
+        <select
+          name="subjectId"
+          value={form.subjectId}
           onChange={updateField}
           required
           className="w-full border p-2"
-        />
+        >
+          <option value="">Select Subject</option>
+          {subjects.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
 
         <input
           name="title"
@@ -100,6 +157,10 @@ export default function CreateExamPage() {
         >
           Create Exam
         </button>
+
+        {message && (
+          <p className="text-sm text-zinc-700">{message}</p>
+        )}
       </form>
     </div>
   );

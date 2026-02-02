@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import { pool } from "./db/pool.js";
 import subjectsRouter from "./routes/subjects.js";
 import authRouter from "./routes/auth.js";
+import adminExamsRouter from "./routes/admin/exams.js";
 
 const app = express();
 
@@ -19,6 +20,7 @@ app.use(cookieParser());
 
 app.use("/subjects", subjectsRouter);
 app.use("/auth", authRouter);
+app.use("/admin", adminExamsRouter);
 
 app.get("/health", async (_req, res) => {
   const result = await pool.query("SELECT 1");
