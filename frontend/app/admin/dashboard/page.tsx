@@ -1,3 +1,8 @@
+/**
+ * Admin Dashboard Page
+ * This page serves as the main dashboard for administrators to manage exams, subjects, and students.
+ */
+
 import Link from "next/link";
 
 export default function AdminDashboard() {
@@ -9,12 +14,21 @@ export default function AdminDashboard() {
         Exam management, subjects, and student controls will appear here.
       </p>
 
-      <Link
-        href="/admin/dashboard/create-exam"
-        className="inline-block mt-6 rounded bg-black px-4 py-2 text-white"
-      >
-        Create Exam
-      </Link>
+      <div className="mt-6 flex gap-4">
+        <Link
+          href="/admin/dashboard/create-exam"
+          className="rounded bg-black px-4 py-2 text-white"
+        >
+          Create Exam
+        </Link>
+
+        <Link
+          href="/admin/dashboard/exams"
+          className="rounded bg-zinc-800 px-4 py-2 text-white"
+        >
+          View Exams
+        </Link>
+      </div>
     </div>
   );
 }
