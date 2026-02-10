@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Exam = {
@@ -14,40 +14,62 @@ type Exam = {
   title: string;
   subject: string;
   max_attempts: number;
+  remaining_attempts?: number;
   cooldown_minutes: number;
+  cooldown_remaining_seconds?: number;
 };
-
-function slugify(title: string) {
-  return title
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-");
-}
 
 export default function StudentExamsPage() {
   const router = useRouter();
   const [exams, setExams] = useState<Exam[]>([]);
+  const [loadedAt, setLoadedAt] = useState<number>(Date.now());
+  const [now, setNow] = useState<number>(Date.now());
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function load() {
-      const res = await fetch(
-        "http://localhost:4000/student/exams",
-        { credentials: "include", cache: "no-store" }
-      );
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+useEffect(() => {
+  async function load() {
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+    const apiBase = baseUrl.replace(/\/$/, "");
+    const res = await fetch(
+      `${apiBase}/student/exams`,
+      { credentials: "include", cache: "no-store" }
+    );
 
       if (res.status === 401 || res.status === 403) {
         router.replace("/login");
         return;
       }
 
-      const data = await res.json();
-      setExams(Array.isArray(data) ? data : []);
-    }
+    const data = await res.json();
+    setExams(Array.isArray(data) ? data : []);
+    setLoadedAt(Date.now());
+  }
 
-    load().catch(() => setError("Failed to load exams"));
-  }, [router]);
+  const safeLoad = () => load().catch(() => setError("Failed to load exams"));
+
+  safeLoad();
+
+  const handleFocus = () => safeLoad();
+  const handleVisibility = () => {
+    if (!document.hidden) {
+      safeLoad();
+    }
+  };
+
+  window.addEventListener("focus", handleFocus);
+  document.addEventListener("visibilitychange", handleVisibility);
+
+  return () => {
+    window.removeEventListener("focus", handleFocus);
+    document.removeEventListener("visibilitychange", handleVisibility);
+  };
+}, [router]);
 
   return (
     <div className="p-10">
@@ -61,30 +83,67 @@ export default function StudentExamsPage() {
             <tr>
               <th className="px-4 py-3 text-left">Subject</th>
               <th className="px-4 py-3 text-left">Title</th>
-              <th className="px-4 py-3 text-left">Attempts</th>
+              <th className="px-4 py-3 text-left">Attempts Left</th>
               <th className="px-4 py-3 text-left">Cooldown (min)</th>
               <th className="px-4 py-3 text-left">Action</th>
             </tr>
           </thead>
           <tbody>
-            {exams.map((e) => (
-              <tr key={e.exam_id} className="border-t hover:bg-zinc-50">
-                <td className="px-4 py-3">{e.subject}</td>
-                <td className="px-4 py-3">{e.title}</td>
-                <td className="px-4 py-3">{e.max_attempts}</td>
-                <td className="px-4 py-3">{e.cooldown_minutes}</td>
-                <td className="px-4 py-3">
-                  <button
-                    onClick={() =>
-                      router.push(`/exam/${slugify(e.title)}`)
-                    }
-                    className="rounded bg-indigo-600 px-3 py-1 text-white hover:bg-indigo-700"
-                  >
-                    Attempt Exam
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {exams.map((e) => {
+              const baseRemaining =
+                typeof e.remaining_attempts === "number"
+                  ? e.remaining_attempts
+                  : e.max_attempts;
+              const baseCooldown =
+                typeof e.cooldown_remaining_seconds === "number"
+                  ? e.cooldown_remaining_seconds
+                  : 0;
+              const elapsedSeconds = Math.floor((now - loadedAt) / 1000);
+              const cooldownRemaining = Math.max(
+                0,
+                baseCooldown - elapsedSeconds
+              );
+              const exhausted = baseRemaining <= 0;
+              const onCooldown = cooldownRemaining > 0;
+              const disabled = exhausted || onCooldown;
+              const minutes = Math.floor(cooldownRemaining / 60);
+              const seconds = cooldownRemaining % 60;
+
+              return (
+                <tr key={e.exam_id} className="border-t hover:bg-zinc-50">
+                  <td className="px-4 py-3">{e.subject}</td>
+                  <td className="px-4 py-3">{e.title}</td>
+                  <td className="px-4 py-3">{baseRemaining}</td>
+                  <td className="px-4 py-3">{e.cooldown_minutes}</td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() =>
+                        router.push(`/student/exams/${e.exam_id}`)
+                      }
+                      disabled={disabled}
+                      aria-disabled={disabled}
+                      className={`rounded px-3 py-1 text-white ${
+                        disabled
+                          ? "cursor-not-allowed bg-indigo-300"
+                          : "bg-indigo-600 hover:bg-indigo-700"
+                      }`}
+                    >
+                      Attempt Exam
+                    </button>
+                    {exhausted && (
+                      <div className="mt-2 text-xs text-red-600">
+                        Maximum attempts reached
+                      </div>
+                    )}
+                    {!exhausted && onCooldown && (
+                      <div className="mt-2 text-xs text-zinc-600">
+                        Cooldown: {minutes}m {seconds}s
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
             {exams.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-6 text-center text-zinc-500">
